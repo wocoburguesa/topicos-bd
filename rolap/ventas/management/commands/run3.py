@@ -24,6 +24,7 @@ class Command(BaseCommand):
     def make_facts_records(self, years, countries, categories):
         counter = 1
         costo = 0
+        total = 0
         records = []
         cursor = connection.cursor()
         cursor.execute('SET autocommit = 1')
@@ -33,17 +34,18 @@ class Command(BaseCommand):
                 for day in years[year][month]:
                     for country in countries:
                         for city in countries[country]:
-                            for branch in countries[country][city]:
-                                cursor.executemany(
-                                    """INSERT INTO ventas_venta (producto_id, tiempo_id, sucursal_id, costo) 
+                            cursor.executemany(
+                                """INSERT INTO ventas_venta (producto_id, tiempo_id, sucursal_id, costo) 
                                     VALUES (%s, %s, %s, %s)""", records
-                                    )
-                                records = []
-                                print counter
+                                )
+                            records = []
+                            print counter
+                            for branch in countries[country][city]:
                                 for cat in categories:
                                     for subcat in categories[cat]:
                                         for product in categories[cat][subcat]:
                                             costo = random.random() * 10
+                                            total += costo
                                             records.append((
                                                     categories[cat][subcat][product],
                                                     years[year][month][day],
@@ -51,6 +53,12 @@ class Command(BaseCommand):
                                                     costo
                                                     ))
                                             counter += 1
+                                SucursalDia.objects.create(
+                                    sucursal_id=countries[country][city][branch],
+                                    tiempo_id=years[year][month][day],
+                                    total=total
+                                    )
+                                total = 0
 
     def make_dimension_records(self, years, countries, categories):
         records = []

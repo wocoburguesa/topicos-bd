@@ -33,3 +33,9 @@ class Venta(models.Model):
     sucursal = models.ForeignKey(Sucursal)
 
     costo = models.FloatField()
+
+class SucursalDia(models.Model):
+    sucursal = models.ForeignKey(Sucursal)
+    tiempo = models.ForeignKey(Tiempo)
+
+    total = models.FloatField()
