@@ -11,6 +11,7 @@ MANAGERS = ADMINS
 
 DATABASES = {
     'default': {
+#        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'rolap',                      # Or path to database file if using sqlite3.
         # The following settings are not used with sqlite3

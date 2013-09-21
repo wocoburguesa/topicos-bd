@@ -15,9 +15,35 @@ class Command(NoArgsCommand):
         categories = self.generate_products(18, 6, 3)
         dummies = self.generate_dummies()
 
-        self.process_dates(years, countries, categories, dummies)
+        outfile = open('file.sql', 'w')
 
-    def process_dates(self, years, countries, categories, dummies):
+        self.process_dates(outfile, years, countries, categories, dummies)
+
+    def make_insert(self, tablename, cols, values):
+        query = 'INSERT INTO %s (' % tablename
+
+        for i in range(len(cols)):
+            query += cols[i]
+            if i < len(cols)-1:
+                query += ', '
+            else:
+                query += ') VALUES ('
+
+        for i in range(len(values)):
+            if type(values[i]) is str:
+                query += "'%s'" % values[i]
+            else:
+                query += str(values[i])
+
+            if i < len(values)-1:
+                query += ', '
+            else:
+                query += ');\n'
+
+        return query
+
+
+    def process_dates(self, outfile, years, countries, categories, dummies):
         counter = 0
         for year in not_id(years.keys()):
             total_year = 0
@@ -25,129 +51,160 @@ class Command(NoArgsCommand):
                 total_month = 0
                 for day in not_id(years[year][month].keys()):
                     print 'Processing day: %s/%s/%s' % (month, day, year)
-                    new_day = Tiempo(
-                        pk=years[year][month][day]['id'],
-                        dia=day,
-                        mes=month,
-                        anio=year
+                    outfile.write(
+                        self.make_insert(
+                            'ventas_tiempo',
+                            ['id', 'dia', 'mes', 'anio'],
+                            [years[year][month][day]['id'], day, month, year]
+                            )
                         )
-                    new_day.save()
-#                    years[year][month][day]['id'] = new_day.id
 
-                    total_day, counter = self.process_countries(countries, categories, dummies, new_day.id, counter)
+                    total_day, counter = self.process_countries(
+                        countries,
+                        categories,
+                        dummies,
+                        new_day.id,
+                        counter
+                        )
                     total_month += total_day
 
-                new_day = Tiempo(
-                    dia=0,
-                    mes=month,
-                    anio=year
+                outfile.write(
+                    self.make_insert(
+                        'ventas_tiempo',
+                        ['id', 'dia', 'mes', 'anio'],
+                        [years[year][month]['id'], 0, month, year]
+                        )
                     )
-                new_day.save()
-                new_sale = Venta(
-                    producto_id=dummies['product'],
-                    tiempo=new_day,
-                    sucursal_id=dummies['branch'],
-                    costo=total_month
+                outfile.write(
+                    self.make_insert(
+                        'ventas_venta',
+                        ['id', 'producto_id', 'tiempo_id', 'sucursal_id', 'costo'],
+                        [counter, dummies['product'], years[year][month]['id'], dummies['branch'], total_month]
+                        )
                     )
-                new_sale.save()
+                counter += 1
                 total_year += total_month
 
-            new_day = Tiempo(
-                dia=0,
-                mes=0,
-                anio=year
+            outfile.write(
+                self.make_insert(
+                    'ventas_tiempo',
+                    ['id', 'dia', 'mes', 'anio'],
+                    [years[year]['id'], 0, 0, year]
+                    )
                 )
-            new_day.save()
-            new_sale = Venta(
-                producto_id=dummies['product'],
-                tiempo=new_day,
-                sucursal_id=dummies['branch'],
-                costo=total_year
+            outfile.write(
+                self.make_insert(
+                    'ventas_venta',
+                    ['id', 'producto_id', 'tiempo_id', 'sucursal_id', 'costo'],
+                    [counter, dummies['product'], years[year]['id'], dummies['branch'], total_year]
+                    )
                 )
-            new_sale.save()
+            counter += 1
 
-    def process_countries(self, countries, categories, dummies, new_day, counter):
+    def process_countries(self, outfile, countries, categories, dummies, new_day, counter):
         total = 0
         for country in not_id(countries.keys()):
-            new_country = Pais(
-                nombre=country
+            outfile.write(
+                self.make_insert(
+                    'ventas_pais',
+                    ['id', 'nombre'],
+                    [countries[country]['id'], country]
+                    )
                 )
-            new_country.save()
-#            countries[country]['id'] = new_country.id
 
             total_country = 0
 
             for city in not_id(countries[country].keys()):
-                new_city = Ciudad(
-                    nombre=city,
-                    pais_id=new_country.id
+                outfile.write(
+                    self.make_insert(
+                        'ventas_ciudad',
+                        ['id', 'nombre', 'pais_id'],
+                        [countries[country][city]['id'], city, countries[country]['id']]
+                        )
                     )
-                new_city.save()
-#                countries[country][city]['id'] = new_city.id
 
                 total_city = 0
 
                 for branch in not_id(countries[country][city].keys()):
-#n                    print 'Processing branch: %s->%s->%s' % (
-#                        country, city, branch
-#                        )
-                    new_branch = Sucursal(
-                        nombre=branch,
-                        ciudad_id=new_city.id
+                    print 'Processing branch: %s->%s->%s' % (
+                        country, city, branch
                         )
-                    new_branch.save()
-#                    countries[country][city][branch]['id'] = new_branch.id
+                    outfile.write(
+                        self.make_insert(
+                            'ventas_sucursal',
+                            ['id', 'nombre', 'ciudad_id'],
+                            [countries[country][city][branch]['id'], branch, countries[country][city]['id']]
+                            )
+                        )
 
-                    total_branch, counter = self.process_categories(categories, new_day, new_branch.id, counter)
+                    total_branch, counter = self.process_categories(
+                        outfile,
+                        categories,
+                        new_day,
+                        new_branch.id,
+                        counter
+                        )
                     total_city += total_branch
 
-                    new_sale = Venta(
-                        producto_id=dummies['product'],
-                        tiempo_id=new_day,
-                        sucursal_id=new_branch.id,
-                        costo=total_branch
+                    outfile.write(
+                        self.make_insert(
+                            'ventas_venta',
+                            ['id', 'producto_id', 'tiempo_id', 'sucursal_id', 'costo'],
+                            [counter, dummies['product'], new_day, countries[country][city][branch]['id'], total_branch]
+                            )
                         )
-                    new_sale.save()
+                    counter += 1
 
-                new_branch = Sucursal(
-                    nombre='TOTAL_CITY',
-                    ciudad_id=new_city.id
+                # +50 porque queremos crear un nuevo registro pero sin chancar los anteriores
+                outfile.write(
+                    self.make_insert(
+                        'ventas_sucursal',
+                        ['id', 'nombre', 'ciudad_id'],
+                        [countries[country][city]['id']+50, 'TOTAL_CITY', countries[country][city]['id']]
+                        )
                     )
-                new_branch.save()
-                new_sale = Venta(
-                    producto_id=dummies['product'],
-                    tiempo_id=new_day,
-                    sucursal_id=new_branch.id,
-                    costo=total_city
+                outfile.write(
+                    self.make_insert(
+                        'ventas_venta',
+                        ['id', 'producto_id', 'tiempo_id', 'sucursal_id', 'costo'],
+                        [counter, dummies['product'], new_day, countries[country][city]['id']+50, total_city]
+                        )
                     )
-                new_sale.save()
+                counter += 1
+
                 total_country += total_city
 
-            new_city = Ciudad(
-                nombre='TOTAL_COUNTRY',
-                pais_id=new_country.id
+            outfile.write(
+                self.make_insert(
+                    'ventas_ciudad',
+                    ['id', 'nombre', 'pais_id'],
+                    [countries[country]['id']+50, 'TOTAL_COUNTRY', countries[country]['id']]
+                    )
                 )
-            new_city.save()
-            new_branch = Sucursal(
-                nombre='NONE',
-                ciudad_id=new_city.id
+            outfile.write(
+                self.make_insert(
+                    'ventas_sucursal',
+                    ['id', 'nombre', 'ciudad_id'],
+                    [countries[country]['id']+51, 'NONE', countries[country]['id']+50]
+                    )
                 )
-            new_branch.save()
-            new_sale = Venta(
-                producto_id=dummies['product'],
-                tiempo_id=new_day,
-                sucursal_id=new_branch.id,
-                costo=total_country
+            outfile.write(
+                self.make_insert(
+                    'ventas_venta',
+                    ['id', 'producto_id', 'tiempo_id', 'sucursal_id', 'costo'],
+                    [counter, dummies['product'], new_day, countries[country]['id']+51, total_country]
+                    )
                 )
-            new_sale.save()
+            counter += 1
+
             total += total_country
-            print 'Done, current count: %s' % counter
 
         return (total, counter)
 
     def process_categories(self, categories, new_day, new_branch, counter):
         total = 0
         for cat in not_id(categories.keys()):
+            print 'Processing cat: %s' % cat
             new_category = Categoria(
                 nombre=cat
                 )
@@ -222,6 +279,7 @@ class Command(NoArgsCommand):
                 )
             new_sale.save()
             total += total_cat
+            print 'Done, current count: %s' % counter
 
         return (total, counter)
 
@@ -262,6 +320,7 @@ class Command(NoArgsCommand):
             }
 
     def generate_times(self):
+        counter = 1
         years = {
             2011: {},
             2012: {},
@@ -274,17 +333,22 @@ class Command(NoArgsCommand):
 
                 if i+1 == 2:
                     for j in range(28):
-                        years[key][i+1][j+1] = {'id': None}
+                        years[key][i+1][j+1] = {'id': counter}
+                        counter += 1
                 elif i+1 in [4, 6, 9, 11]:
                     for j in range(30):
-                        years[key][i+1][j+1] = {'id': None}
+                        years[key][i+1][j+1] = {'id': counter}
+                        counter += 1
                 else:
                     for j in range(31):
-                        years[key][i+1][j+1] = {'id': None}
+                        years[key][i+1][j+1] = {'id': counter}
+                        counter += 1
 
-                years[key][i+1]['id'] = None
+                years[key][i+1]['id'] = counter
+                counter += 1
 
-            years[key]['id'] = None
+            years[key]['id'] = counter
+            counter += 1
 
         return years
 
@@ -334,18 +398,23 @@ class Command(NoArgsCommand):
             }
 
         counter = 1
+        id_counter = 1
 
         for country in countries.keys():
             for city in countries[country].keys():
-                countries[country][city]['sucursal%s' % counter] = {'id': None}
+                countries[country][city]['sucursal%s' % counter] = {'id': id_counter}
                 counter += 1
-                countries[country][city]['id'] = None
-            countries[country]['id'] = None
+                id_counter += 1
+                countries[country][city]['id'] = id_counter
+                id_counter += 1
+            countries[country]['id'] = id_counter
+            id_counter += 1
 
         return countries
 
     def generate_products(self, total, subcats, cats):
         categories = {}
+        counter = 1
 
         for i in range(cats):
             cat_idx = 'cat%s' % (i+1)
@@ -355,11 +424,14 @@ class Command(NoArgsCommand):
                 categories[cat_idx][subcat_idx] = {}
                 for k in range(total/(cats*subcats)):
                     prod_idx = 'prod%s.%s.%s' % (i+1, j+1, k+1)
-                    categories[cat_idx][subcat_idx][prod_idx] = {'id': None}
+                    categories[cat_idx][subcat_idx][prod_idx] = {'id': counter}
+                    counter += 1
 
-                categories[cat_idx][subcat_idx]['id'] = None
+                categories[cat_idx][subcat_idx]['id'] = counter
+                counter += 1
 
-            categories[cat_idx]['id'] = None
+            categories[cat_idx]['id'] = counter
+            counter += 1
 
         return categories
 
