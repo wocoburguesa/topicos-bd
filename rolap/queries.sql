@@ -1,5 +1,5 @@
 -- totales por sucursal
-select CONCAT('sucursal ', s.id) as sucursal, t.dia, t.mes, t.anio, a.total from ventas_sucursal s, ventas_tiempo t, ventas_sucursaldia a where a.sucursal_id = s.id AND a.tiempo_id = t.id;
+select s.nombre as sucursal, t.dia, t.mes, t.anio, a.total from ventas_sucursal s, ventas_tiempo t, ventas_sucursaldia a where a.sucursal_id = s.id AND a.tiempo_id = t.id;
 
 -- totales por dia
 select t.dia, t.mes, t.anio, sum(a.total) from ventas_tiempo t, ventas_sucursaldia a where a.tiempo_id = t.id group by a.tiempo_id;
@@ -8,7 +8,7 @@ select t.dia, t.mes, t.anio, sum(a.total) from ventas_tiempo t, ventas_sucursald
 select mes, anio, sum(total) from (select t.dia, t.mes, t.anio, sum(a.total) as total from ventas_tiempo t, ventas_sucursaldia a where a.tiempo_id = t.id group by a.tiempo_id) as bolas group by mes, anio order by anio, mes;
 
 -- totales por anio
-select anio, sum(total) from (select t.dia, t.mes, t.anio, sum(a.total) as total from ventas_tiempo t, ventas_sucursaldia a where a.tiempo_id = t.id group by a.tiempo_id) as bolas group by anio order by anio;
+select anio, sum(total) from (select t.dia, t.mes, t.anio, sum(a.total) as total from ventas_tiempo t, ventas_sucursaldia a where a.tiempo_id = t.id group by a.tiempo_id) as bolas group by anio order by anio INTO OUTFILE '/Users/wocoburguesa/Documents/Universidad/Semestre9/TopicosBD/rolap/totales-anio.csv' FIELDS TERMINATED BY ',';
 
 -- total por sucursal especifica y dia especifico
 select * from ventas_sucursaldia where tiempo_id=(select id from ventas_tiempo where dia=1 AND mes=1 AND anio=2011) AND sucursal_id=(select id from ventas_sucursal where ciudad_id = (select id from ventas_ciudad where nombre='arequipa'));
