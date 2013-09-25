@@ -39,3 +39,9 @@ class SucursalDia(models.Model):
     tiempo = models.ForeignKey(Tiempo)
 
     total = models.FloatField()
+
+class SubcatDia(models.Model):
+    subcategoria = models.ForeignKey(SubCategoria)
+    tiempo = models.ForeignKey(Tiempo)
+
+    total = models.FloatField()

@@ -23,8 +23,9 @@ class Command(BaseCommand):
 
     def make_facts_records(self, years, countries, categories):
         counter = 1
-        costo = 0
-        total = 0
+        cost = 0
+        branch_total = 0
+        subcat_total = 0
         records = []
         cursor = connection.cursor()
         cursor.execute('SET autocommit = 1')
@@ -44,19 +45,27 @@ class Command(BaseCommand):
                                 for cat in categories:
                                     for subcat in categories[cat]:
                                         for product in categories[cat][subcat]:
-                                            costo = random.random() * 10
-                                            total += costo
-                                            records.append((
-                                                    categories[cat][subcat][product],
-                                                    years[year][month][day],
-                                                    countries[country][city][branch],
-                                                    costo
-                                                    ))
-                                            counter += 1
+                                            if product != 'id':
+                                                cost = random.random() * 10
+                                                subcat_total += cost
+                                                records.append((
+                                                        categories[cat][subcat][product],
+                                                        years[year][month][day],
+                                                        countries[country][city][branch],
+                                                        cost
+                                                        ))
+                                                counter += 1
+                                    SubcatDia.objects.create(
+                                        subcategoria_id=categories[cat][subcat]['id'],
+                                        tiempo_id=years[year][month][day],
+                                        total=subcat_total
+                                        )
+                                    branch_total += subcat_total
+                                    subcat_total = 0
                                 SucursalDia.objects.create(
                                     sucursal_id=countries[country][city][branch],
                                     tiempo_id=years[year][month][day],
-                                    total=total
+                                    total=branch_total
                                     )
                                 total = 0
 
@@ -81,6 +90,7 @@ class Command(BaseCommand):
                 for branch in countries[country][city]:
                     records.append(Sucursal(
                             pk=countries[country][city][branch],
+                            nombre=('Sucursal %s' % city),
                             ciudad=new_city
                             ))
         Sucursal.objects.bulk_create(records)
@@ -90,13 +100,16 @@ class Command(BaseCommand):
             new_category = Categoria.objects.create(nombre=cat)
             for subcat in categories[cat]:
                 new_subcat = SubCategoria.objects.create(
+                    pk=categories[cat][subcat]['id'],
                     nombre=subcat,
                     categoria=new_category)
                 for product in categories[cat][subcat]:
-                    records.append(Producto(
-                            pk=categories[cat][subcat][product],
-                            subcategoria=new_subcat
-                            ))
+                    if product != 'id':
+                        records.append(Producto(
+                                pk=categories[cat][subcat][product],
+                                nombre=product,
+                                subcategoria=new_subcat
+                                ))
         Producto.objects.bulk_create(records)
 
 
@@ -185,6 +198,7 @@ class Command(BaseCommand):
     def generate_products(self, total, subcats, cats):
         categories = {}
 
+        subcat_counter = 1
         counter = 1
 
         for i in range(cats):
@@ -192,7 +206,8 @@ class Command(BaseCommand):
             categories[cat_idx] = {}
             for j in range(subcats):
                 subcat_idx = 'cat%s.%s' % (i+1, j+1)
-                categories[cat_idx][subcat_idx] = {}
+                categories[cat_idx][subcat_idx] = {'id': subcat_counter}
+                subcat_counter += 1
                 for k in range(total/(cats*subcats)):
                     prod_idx = 'prod%s.%s.%s' % (i+1, j+1, k+1)
                     categories[cat_idx][subcat_idx][prod_idx] = counter
